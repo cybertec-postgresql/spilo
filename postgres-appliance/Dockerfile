@@ -212,10 +212,20 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
+\
+    # build and install our custom patched version
+    && apt-get build-dep -y postgresql-$PGVERSION \
+    && apt-get source postgresql-$PGVERSION \
+    && cd postgresql-${PGVERSION}-* \
+    && for p in $(ls ../postgresql-*.patch); do \
+        patch -p1 < ../$p.patch; \
+    done \
+    && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
+    && apt-get install --allow-downgrades -y -f ../postgresql-*.deb \
+    && cd .. \
 \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
@@ -229,9 +239,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     # build and install missing packages
     && for pkg in pgextwlist; do \
-        apt-get source postgresql-13-${pkg} \
+        apt-get build-dep -y postgresql-13-${pkg} \
+        && apt-get source postgresql-13-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
-        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
             sed -i '/postgresql-all/d' debian/control.in \
             # make it possible to use it from shared_preload_libraries
@@ -252,7 +262,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all 'postgresql-server-dev-*' 'libpq-dev=*' libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
