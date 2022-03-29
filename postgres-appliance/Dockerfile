@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=ubuntu:18.04
-ARG PGVERSION=14
+ARG PGVERSION=15
 ARG TIMESCALEDB="1.7.5 2.3.1 2.5.2"
 ARG DEMO=false
 ARG COMPRESS=false
@@ -96,7 +96,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     # Add PGDG repositories
     && DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
     && for t in deb deb-src; do \
-        echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list; \
+        echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg-testing main $PGVERSION" >> /etc/apt/sources.list.d/pgdg.list; \
     done \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 \
@@ -120,8 +120,8 @@ ARG TIMESCALEDB
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.6 10 11 12 13"
-ARG WITH_PERL=false
+ARG PGOLDVERSIONS=""
+ARG WITH_PERL=true
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
@@ -178,11 +178,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then dpkg -i *.deb || apt-get -y -f install; fi \
 \
-    && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/sdudoladov/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    && git clone https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 brotli libbrotli1 python3.6 python3-psycopg2 \
 \
@@ -193,59 +190,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
             && apt-get update \
 \
-            && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-pltcl-${version} \
-                        postgresql-${version}-dirtyread \
-                        postgresql-${version}-extra-window-functions \
-                        postgresql-${version}-first-last-agg \
-                        postgresql-${version}-hll \
-                        postgresql-${version}-hypopg \
-                        postgresql-${version}-pgaudit \
-                        postgresql-${version}-pg-checksums \
-                        postgresql-${version}-pgl-ddl-deploy \
-                        postgresql-${version}-pglogical \
-                        postgresql-${version}-pglogical-ticker \
-                        postgresql-${version}-pgq-node \
-                        postgresql-${version}-pldebugger \
-                        postgresql-${version}-pllua \
-                        postgresql-${version}-plpgsql-check \
-                        postgresql-${version}-plproxy \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
-                        postgresql-${version}-repack \
-                        postgresql-${version}-wal2json" \
-                && if [ "$WITH_PERL" = "true" ]; then \
-                    EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
-                fi \
-                && if [ ${version%.*} -ge 10 ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-decoderbufs"; \
-                fi \
-                && if [ ${version%.*} -lt 11 ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
-                fi; \
-            fi \
-\
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
-            && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
-                    postgresql-plpython3-${version} postgresql-server-dev-${version} \
-                    postgresql-${version}-cron postgresql-${version}-pgq3 \
-                    postgresql-${version}-pg-stat-kcache $EXTRAS \
-\
-            # Install 3rd party stuff
-            && cd timescaledb \
-            && for v in $TIMESCALEDB; do \
-                git checkout $v \
-                && sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt \
-                && if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                    -DTAP_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
-                    -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO; then \
-                        make -C build install \
-                        && strip /usr/lib/postgresql/$version/lib/timescaledb*.so; \
-                fi \
-                && git reset --hard \
-                && git clean -f -d; \
-            done \
-            && cd .. \
+            && apt-get install -y -t bionic-pgdg-testing \
+                    postgresql-contrib-${version} postgresql-plpython3-${version} \
+                    postgresql-server-dev-${version} postgresql-client-${version} \
+                    $EXTRAS \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler" \
@@ -256,7 +205,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRA_EXTENSIONS=""; \
             fi \
 \
-            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user pg_permission-${PG_PERMISSIONS_COMMIT} $EXTRA_EXTENSIONS; do \
+            && for n in set_user pg_permission-${PG_PERMISSIONS_COMMIT} $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done; \
     done \
@@ -269,47 +218,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
 \
-    # build and install our custom patched version
-    && apt-get build-dep -y postgresql-$PGVERSION \
-    && apt-get source postgresql-$PGVERSION \
-    && cd postgresql-${PGVERSION}-* \
-    && for p in $(ls ../postgresql-*.patch); do \
-        patch -p1 < ../$p.patch; \
-    done \
-    && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
-    && apt-get install --allow-downgrades -y -f ../postgresql-*.deb \
-    && cd .. \
-\
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            # due to dependency issues partman has to be installed separately
-            apt-get install -y postgresql-${version}-partman \
             # create postgis symlinks to make it possible to perform update
-            && ln -s postgis-${POSTGIS_VERSION%.*}.so \
+            ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done; \
     fi \
-\
-    # build and install missing packages
-    && for pkg in pgextwlist; do \
-        apt-get build-dep -y postgresql-13-${pkg} \
-        && apt-get source postgresql-13-${pkg} \
-        && cd $(ls -d *${pkg%?}*-*/) \
-        && if [ "$pkg" = "pgextwlist" ]; then \
-            sed -i '/postgresql-all/d' debian/control.in \
-            # make it possible to use it from shared_preload_libraries
-            && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
-            && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
-        fi \
-        && pg_buildext updatecontrol \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
-        && cd .. \
-        && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            for deb in postgresql-${version}-${pkg}_*.deb; do \
-                if [ -f $deb ]; then dpkg -i $deb; fi; \
-            done; \
-        done; \
-    done \
 \
     # make it possible for cron to work without root
     && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
