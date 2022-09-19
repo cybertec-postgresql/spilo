@@ -184,6 +184,9 @@ bootstrap:
       {{/STANDBY_WITH_WALE}}
       {{#STANDBY_HOST}}
       host: {{STANDBY_HOST}}
+      {{#STANDBY_APPLICATION_NAME}}
+      application_name: {{STANDBY_APPLICATION_NAME}}
+      {{/STANDBY_APPLICATION_NAME}}
       {{/STANDBY_HOST}}
       {{#STANDBY_PORT}}
       port: {{STANDBY_PORT}}
@@ -611,6 +614,7 @@ def get_placeholders(provider):
     placeholders.setdefault('STANDBY_WITH_WALE', '')
     placeholders.setdefault('STANDBY_HOST', '')
     placeholders.setdefault('STANDBY_PORT', '')
+    placeholders.setdefault('STANDBY_APPLICATION_NAME', '')
     placeholders.setdefault('STANDBY_CLUSTER', placeholders['STANDBY_WITH_WALE'] or placeholders['STANDBY_HOST'])
 
     if provider == PROVIDER_AWS and not USE_KUBERNETES:
