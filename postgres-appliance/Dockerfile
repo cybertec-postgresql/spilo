@@ -58,7 +58,7 @@ FROM $BASE_IMAGE as builder-false
 ARG DEMO
 ARG ADDITIONAL_LOCALES=
 
-RUN echo "ADDITIONAL_LOCALES=$ADDITIONAL_LOCALES"
+RUN echo "ADDITIONAL_LOCALES=${ADDITIONAL_LOCALES}"
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
