@@ -451,8 +451,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     # /tmp/patches/ directory needs to be "plugged in" while building the image
     # need to use -p2 because the patroni repo has all python source code in a "patroni" directory and not the base dir
     && curl -s --header "Accept:application/vnd.github.v4.diff" https://api.github.com/repos/zalando/patroni/compare/master...cybertec-postgresql:db7c584 > /tmp/multiside-standby-cluster.diff \
-    && git apply -p1 --exclude=docs/* --exclude=tests/* /tmp/multiside-standby-cluster.diff
-    #&& grep -C2 -e synchronous_nodes_additional patroni/*.py \
+    && git apply -p1 --exclude=docs/* --exclude=tests/* /tmp/multiside-standby-cluster.diff \
+    # && grep -C2 -e synchronous_nodes_additional patroni/*.py \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
