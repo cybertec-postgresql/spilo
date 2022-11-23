@@ -48,6 +48,15 @@ elif python3 /scripts/configure_spilo.py all; then
     fi
 fi
 
+if [ "$USE_PGBACKREST" = "true" ]; then
+    CMD="/scripts/patroni_wait.sh -t 3600 -- /scripts/pgbackrest_backup.sh"
+    if [ "$(id -u)" = "0" ]; then
+        su postgres -c "PATH=$PATH $CMD" &
+    else
+        $CMD &
+    fi
+fi
+
 sv_stop() {
     sv -w 86400 stop patroni
     sv -w 86400 stop /etc/service/*

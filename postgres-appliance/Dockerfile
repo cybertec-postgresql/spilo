@@ -462,6 +462,10 @@ RUN set -ex \
         && /bin/busybox sh -c "find $save_dirs -type d -depth -exec rmdir -p {} \; 2> /dev/null"; \
     fi
 
+# ADD PGBACKREST
+    RUN apt-get update -y && apt-get install -y pgbackrest && apt-get clean
+    RUN rm /etc/pgbackrest.conf
+
 FROM scratch as builder-true
 COPY --from=builder-false / /
 
