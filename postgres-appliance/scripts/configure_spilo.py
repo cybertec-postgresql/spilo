@@ -646,9 +646,14 @@ def get_placeholders(provider):
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
     placeholders['WALE_BINARY'] = 'wal-g' if placeholders.get('USE_WALG_BACKUP') == 'true' else 'wal-e'
-    placeholders['postgresql']['parameters']['archive_command'] = \
-        'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
-        if placeholders['USE_WALE'] else '/bin/true'
+    if placeholders['USE_WALE']:
+        placeholders['postgresql']['parameters']['archive_command'] = \
+        'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders)
+    elif placeholders['USE_PGBACKREST']:
+        placeholders['postgresql']['parameters']['archive_command'] = \
+        'pgbackrest --stanza=db archive-push "%p"'.format(**placeholders)
+    else:
+        placeholders['postgresql']['parameters']['archive_command'] = '/bin/true'
 
     cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
