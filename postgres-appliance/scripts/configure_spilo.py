@@ -182,6 +182,9 @@ bootstrap:
       restore_command: envdir "{{STANDBY_WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
         /scripts/restore_command.sh "%f" "%p"
       {{/STANDBY_WITH_WALE}}
+      {{#USE_PGBACKREST}}
+      restore_command: pgbackrest --stanza=db archive-get "%f" "%p"
+      {{/USE_PGBACKREST}}
       {{#STANDBY_HOST}}
       host: {{STANDBY_HOST}}
       {{/STANDBY_HOST}}
@@ -342,6 +345,10 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefun
     restore_command: envdir "{{WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
       /scripts/restore_command.sh "%f" "%p"
   {{/USE_WALE}}
+  {{#USE_PGBACKREST}}
+  recovery_conf:
+    restore_command: pgbackrest --stanza=db archive-get "%f" "%p"
+  {{/USE_PGBACKREST}}
   authentication:
     superuser:
       username: {{PGUSER_SUPERUSER}}
