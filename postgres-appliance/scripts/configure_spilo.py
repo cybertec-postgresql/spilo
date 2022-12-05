@@ -656,7 +656,7 @@ def get_placeholders(provider):
     if placeholders['USE_WALE']:
         placeholders['postgresql']['parameters']['archive_command'] = \
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders)
-    elif placeholders['USE_PGBACKREST']:
+    elif 'USE_PGBACKREST' in placeholders and placeholders['USE_PGBACKREST']:
         placeholders['postgresql']['parameters']['archive_command'] = \
         'pgbackrest --stanza=db archive-push "%p"'.format(**placeholders)
     else:
