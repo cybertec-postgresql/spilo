@@ -15,7 +15,7 @@ apt-get update
 # install most of the patroni dependencies from ubuntu packages
 apt-cache depends patroni \
         | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
-        | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
+        | grep -Ev '^python3-(sphinx|etcd|etcd3|consul|kazoo|kubernetes)' \
         | xargs apt-get install -y "${BUILD_PACKAGES[@]}" python3-pystache python3-requests
 
 pip3 install setuptools
@@ -24,6 +24,7 @@ if [ "$DEMO" != "true" ]; then
     EXTRAS=",etcd,consul,zookeeper,aws"
     apt-get install -y \
         python3-etcd \
+        python3-etcd3 \
         python3-consul \
         python3-kazoo \
         python3-boto \
@@ -49,7 +50,9 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
+#pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
+git clone -b multisite https://github.com/ants/patroni /builddeps/patroni  \
+&& pip3 install /builddeps/patroni[kubernetes$EXTRAS] \
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages

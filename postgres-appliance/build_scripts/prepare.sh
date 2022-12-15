@@ -22,7 +22,7 @@ if [ "$DEMO" != "true" ]; then
     # Required for wal-e
     apt-get install -y pv lzop
     # install etcdctl
-    ETCDVERSION=3.3.27
+    ETCDVERSION=3.5.6
     curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-"$(dpkg --print-architecture)".tar.gz \
                 | tar xz -C /bin --strip=1 --wildcards --no-anchored --no-same-owner etcdctl etcd
 fi

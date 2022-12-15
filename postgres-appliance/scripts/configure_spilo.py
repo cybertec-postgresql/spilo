@@ -382,6 +382,23 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefun
     retries: 2
     no_master: 1
 {{/STANDBY_WITH_WALE}}
+{{#USE_MULTISITE}}
+ multisite:
+   name: '{{MULTISITE_SITE}}-{{SCOPE}}'
+   namespace: {{MULTISITE_NAMESPACE}}
+   etcd3:
+     host: {{MULTISITE_ETCD_HOST}}
+     {{#MULTISITE_ETCD_USER}}
+     user: {{MULTISITE_ETCD_USER}}
+     {{/MULTISITE_ETCD_USER}}
+     {{#MULTISITE_ETCD_PASSWORD}}
+     user: {{MULTISITE_ETCD_PASSWORD}}
+     {{/MULTISITE_ETCD_PASSWORD}}
+   host: {{EXTERNAL_HOST}}
+   port: {{EXTERNAL_PORT}}
+   ttl: 90
+   retry_timeout: 40
+ {{/USE_MULTISITE}}
 '''
 
 
@@ -691,6 +708,17 @@ def get_placeholders(provider):
                                                                         'restapi-api-server.key')
     if placeholders.get('SSL_RESTAPI_CA') and not placeholders['SSL_RESTAPI_CA_FILE']:
         placeholders['SSL_RESTAPI_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'rest-api-ca.crt')
+
+    placeholders.setdefault('MULTISITE_SITE', '')
+    placeholders.setdefault('MULTISITE_ETCD_HOST', '')
+    placeholders.setdefault('MULTISITE_ETCD_USER', '')
+    placeholders.setdefault('MULTISITE_ETCD_PASSWORD', '')
+    placeholders.setdefault('EXTERNAL_HOST', placeholders['instance_data']['ip'])
+    placeholders.setdefault('EXTERNAL_PORT', placeholders['PGPORT'])
+    placeholders.setdefault('MULTISITE_NAMESPACE', '/multisite/{}'.format(placeholders['NAMESPACE']))
+    placeholders.setdefault('USE_MULTISITE', placeholders['MULTISITE_SITE'] != '')
+    if placeholders['USE_MULTISITE'] and not placeholders['MULTISITE_ETCD_HOST']:
+     logging.warning("etcd location not configured for multisite operation")
 
     return placeholders
 
