@@ -383,22 +383,22 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefun
     no_master: 1
 {{/STANDBY_WITH_WALE}}
 {{#USE_MULTISITE}}
- multisite:
-   name: '{{MULTISITE_SITE}}-{{SCOPE}}'
-   namespace: {{MULTISITE_NAMESPACE}}
-   etcd3:
-     host: {{MULTISITE_ETCD_HOST}}
-     {{#MULTISITE_ETCD_USER}}
-     user: {{MULTISITE_ETCD_USER}}
-     {{/MULTISITE_ETCD_USER}}
-     {{#MULTISITE_ETCD_PASSWORD}}
-     user: {{MULTISITE_ETCD_PASSWORD}}
-     {{/MULTISITE_ETCD_PASSWORD}}
-   host: {{EXTERNAL_HOST}}
-   port: {{EXTERNAL_PORT}}
-   ttl: 90
-   retry_timeout: 40
- {{/USE_MULTISITE}}
+multisite:
+  name: '{{MULTISITE_SITE}}-{{SCOPE}}'
+  namespace: {{MULTISITE_NAMESPACE}}
+  etcd3:
+    host: {{MULTISITE_ETCD_HOST}}
+    {{#MULTISITE_ETCD_USER}}
+    user: {{MULTISITE_ETCD_USER}}
+    {{/MULTISITE_ETCD_USER}}
+    {{#MULTISITE_ETCD_PASSWORD}}
+    user: {{MULTISITE_ETCD_PASSWORD}}
+    {{/MULTISITE_ETCD_PASSWORD}}
+  host: {{EXTERNAL_HOST}}
+  port: {{EXTERNAL_PORT}}
+  ttl: 90
+  retry_timeout: 40
+{{/USE_MULTISITE}}
 '''
 
 
