@@ -11,12 +11,18 @@ if [ -f /a.tar.xz ]; then
     fi
 fi
 
-if [ "x$1" = "xinit" ]; then
+if [ "$1" = "init" ]; then
     exec /usr/bin/dumb-init -c --rewrite 1:0 -- /bin/sh /launch.sh
 fi
 
 sysctl -w vm.dirty_background_bytes=67108864 > /dev/null 2>&1
 sysctl -w vm.dirty_bytes=134217728 > /dev/null 2>&1
+
+if [ "$USE_OLD_LOCALES" = "true" ]; then
+    ln -snf /usr/lib/locale/locale-archive.18 /run/locale-archive
+else
+    ln -snf /usr/lib/locale/locale-archive.22 /run/locale-archive
+fi
 
 mkdir -p "$PGLOG" "$PGDATA" "$RW_DIR/postgresql" "$RW_DIR/tmp" "$RW_DIR/certs"
 if [ "$(id -u)" -ne 0 ]; then

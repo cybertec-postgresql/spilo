@@ -19,6 +19,9 @@ Environment Configuration Settings
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
+- **STANDBY_HOST**: hostname or IP address of the primary to stream from.
+- **STANDBY_PORT**: TCP port on which the primary is listening for connections. Patroni will use "5432" if not set.
+- **STANDBY_PRIMARY_SLOT_NAME**: replication slot to use on the primary.
 - **PGUSER_ADMIN**: username for the default admin user, 'admin' by default.
 - **PGPASSWORD_ADMIN**: a password for the default admin user, 'cola' by default.
 - **USE_ADMIN**: whether to use the admin user or not.
@@ -80,8 +83,11 @@ Environment Configuration Settings
 - **SSH_USERNAME**: (optional) the username for WAL backups.
 - **SSH_PORT**: (optional) the ssh port for WAL backups.
 - **SSH_PRIVATE_KEY_PATH**: (optional) the path to the private key used for WAL backups.
-- **AZURE_STORAGE_ACCOUNT**:(optional) the azure storage account to use for WAL backups.
-- **AZURE_STORAGE_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
+- **AZURE_STORAGE_ACCOUNT**: (optional) the azure storage account to use for WAL backups.
+- **AZURE_STORAGE_ACCESS_KEY**: (optional) the access key for the azure storage account used for WAL backups.
+- **AZURE_CLIENT_ID**: (optional) Client (application) ID of the Service Principal
+- **AZURE_CLIENT_SECRET**: (optional) Client secret of the Service Principal
+- **AZURE_TENANT_ID**: (optional) Tenant ID of the Service Principal
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path. Logs are shipped if this variable is set.
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (if this feature is enabled, '00 02 * * *' by default)
@@ -95,6 +101,7 @@ Environment Configuration Settings
 - **INITDB_LOCALE**: database cluster's default UTF-8 locale (en_US by default)
 - **ENABLE_WAL_PATH_COMPAT**: old Spilo images were generating wal path in the backup store using the following template ``/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/``, while new images adding one additional directory (``{PGVERSION}``) to the end. In order to avoid (unlikely) issues with restoring WALs (from S3/GC/and so on) when switching to ``spilo-13`` please set the ``ENABLE_WAL_PATH_COMPAT=true`` when deploying old cluster with ``spilo-13`` for the first time. After that the environment variable could be removed. Change of the WAL path also mean that backups stored in the old location will not be cleaned up automatically.
 - **WALE_DISABLE_S3_SSE**, **WALG_DISABLE_S3_SSE**: by default wal-e/wal-g are configured to encrypt files uploaded to S3. In order to disable it you can set this environment variable to ``true``.
+- **USE_OLD_LOCALES**: whether to use old locales from Ubuntu 18.04 in the Ubuntu 22.04-based image. Default is false.
 
 wal-g
 -----
@@ -110,17 +117,35 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
 - **WALG_LIBSODIUM_KEY**, **WALG_LIBSODIUM_KEY_PATH**, **WALG_LIBSODIUM_KEY_TRANSFORM**, **WALG_PGP_KEY**, **WALG_PGP_KEY_PATH**, **WALG_PGP_KEY_PASSPHRASE** (optional) wal-g encryption properties (see [wal-g encryption](https://github.com/wal-g/wal-g#encryption))
 - **http_proxy**, **https_proxy**, **no_proxy** (optional) HTTP(S) proxy configuration for `wal-g` to access S3. While http_proxy and https_proxy take a proxy URL, no_proxy takes a comma separated list of exceptions. Both are following a de-facto standard, see the [`wget`](https://www.gnu.org/software/wget/manual/html_node/Proxies.html) documentation.
-
+- **AWS_ROLE_ARN**, **AWS_WEB_IDENTITY_TOKEN_FILE**, **AWS_STS_REGIONAL_ENDPOINTS** (optional) `AWS EKS IRSA <https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html>`__ auth configuration for `wal-g` to access S3. Usually these variables are automatically set by the AWS EKS. Only `wal-g` supports AWS EKS IRSA feature.
 
 Azure Specific WAL-G Configuration
 `````
 
-For more inforamation on the Azure specific options, refer to https://github.com/wal-g/wal-g/blob/master/docs/STORAGES.md#azure
+For more information on the Azure specific options, refer to https://github.com/wal-g/wal-g/blob/master/docs/STORAGES.md#azure.
+
+General configuration options for wal-g backup to Azure:
 
 - **WALG_AZ_PREFIX**: Enables Azure Backups. The azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
 - **AZURE_STORAGE_ACCOUNT**
-- **AZURE_STORAGE_ACCESS_KEY**
-- **AZURE_STORAGE_SAS_TOKEN**
 - **WALG_AZURE_BUFFER_SIZE**
 - **WALG_AZURE_MAX_BUFFERS**
 - **AZURE_ENVIRONMENT_NAME**
+
+For authentication with the Microsoft Azure Blob Storage, choose one of the available authentication options:
+
+- Storage Account Key:
+
+  - **AZURE_STORAGE_ACCESS_KEY**
+
+- Shared Access Signatures (SAS):
+
+  - **AZURE_STORAGE_SAS_TOKEN**
+
+- Service Principal:
+
+  - **AZURE_CLIENT_ID**
+  - **AZURE_CLIENT_SECRET**
+  - **AZURE_TENANT_ID**
+
+- Managed Service Identity (MSI): No configuration options required.
