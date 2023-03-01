@@ -57,8 +57,8 @@ cd ..
 # /tmp/patches/ directory needs to be "plugged in" while building the image
 # need to use -p2 because the patroni repo has all python source code in a "patroni" directory and not the base dir
 curl -o /tmp/sync-standby-cluster.diff -s --header "Accept:application/vnd.github.v4.diff" "https://api.github.com/repos/zalando/patroni/compare/master...cybertec-postgresql:feature/sync-standby-cluster"
-cat /tmp/multiside-standby-cluster.diff
-git apply -p1 --exclude=docs/* --exclude=tests/*
+cat /tmp/sync-standby-cluster.diff
+git apply -p1 --exclude=docs/* --exclude=tests/* /tmp/sync-standby-cluster.diff
 grep -C2 -e synchronous_nodes_additional patroni/*.py
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
