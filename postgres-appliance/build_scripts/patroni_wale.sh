@@ -52,14 +52,14 @@ fi
 pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
 
 # go into the path where patroni source files are installed
-cd `python3 -c "import patroni as _; print(_.__path__)" | cut -d "'" -f 2` \
-cd .. \
+cd `python3 -c "import patroni as _; print(_.__path__)" | cut -d "'" -f 2`
+cd ..
 # /tmp/patches/ directory needs to be "plugged in" while building the image
 # need to use -p2 because the patroni repo has all python source code in a "patroni" directory and not the base dir
-curl -s --header "Accept:application/vnd.github.v4.diff" https://api.github.com/repos/zalando/patroni/compare/master...cybertec-postgresql:feature/sync-standby-cluster > /tmp/sync-standby-cluster.diff \
-cat /tmp/multiside-standby-cluster.diff \
-git apply -p1 --exclude=docs/* --exclude=tests/* \
-grep -C2 -e synchronous_nodes_additional patroni/*.py \
+curl -s --header "Accept:application/vnd.github.v4.diff" https://api.github.com/repos/zalando/patroni/compare/master...cybertec-postgresql:feature/sync-standby-cluster > /tmp/sync-standby-cluster.diff
+cat /tmp/multiside-standby-cluster.diff
+git apply -p1 --exclude=docs/* --exclude=tests/*
+grep -C2 -e synchronous_nodes_additional patroni/*.py
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages
