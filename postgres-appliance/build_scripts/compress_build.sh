@@ -2,9 +2,9 @@
 
 set -ex
 
-apt-get update
-apt-get install -y busybox xz-utils
-apt-get clean
+zypper update
+zypper install -y busybox xz-utils
+zypper clean
 
 rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd
 ln -snf busybox /bin/sh

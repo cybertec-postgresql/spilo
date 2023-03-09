@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=opensuse/leap:15.4
 ARG PGVERSION=15
 ARG TIMESCALEDB="1.7.5 2.3.1 2.8.1"
 ARG DEMO=false
@@ -6,7 +6,7 @@ ARG COMPRESS=false
 ARG ADDITIONAL_LOCALES=
 
 
-FROM ubuntu:18.04 as ubuntu-18
+FROM opensuse/leap:15.4 as leap-15.4
 
 ARG ADDITIONAL_LOCALES
 
@@ -37,7 +37,7 @@ COPY build_scripts/prepare.sh build_scripts/locales.sh /builddeps/
 
 RUN bash /builddeps/prepare.sh
 
-COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
+#COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
 
 COPY cron_unprivileged.c dependencies/src /builddeps/
 COPY build_scripts/base.sh /builddeps/
@@ -47,10 +47,10 @@ ARG PGVERSION
 ARG TIMESCALEDB
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG COMPRESS
-ARG PGOLDVERSIONS="10 11 12 13 14"
+ARG PGOLDVERSIONS="13 14"
 ARG WITH_PERL=false
 
-ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
+ARG PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.3 \

@@ -9,26 +9,28 @@ MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)"
 export MAKEFLAGS
 
 set -ex
-sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list
+zypper addrepo https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg15.repo
+zypper addrepo https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg14.repo
+zypper addrepo https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg13.repo
 
-apt-get update
+zypper refresh
 
-BUILD_PACKAGES=(devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev)
+BUILD_PACKAGES=(devscripts equivs git gcc libc6-devel make cmake libevent-devel libbrotli-devel libssl-devel libkrb5-devel)
 if [ "$DEMO" = "true" ]; then
-    export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION"
+    export PG_SUPPORTED_VERSIONS="$PGVERSION"
     WITH_PERL=false
     rm -f ./*.deb
-    apt-get install -y "${BUILD_PACKAGES[@]}"
+    zypper install -y "${BUILD_PACKAGES[@]}"
 else
-    BUILD_PACKAGES+=(zlib1g-dev
-                    libprotobuf-c-dev
-                    libpam0g-dev
-                    libcurl4-openssl-dev
-                    libicu-dev
-                    libc-ares-dev
+    BUILD_PACKAGES+=(zlib1g-devel
+                    libprotobuf-c-devel
+                    libpam0g-devel
+                    libcurl4-openssl-devel
+                    libicu-devel
+                    libc-ares-devel
                     pandoc
                     pkg-config)
-    apt-get install -y "${BUILD_PACKAGES[@]}" libcurl4
+    zypper install -y "${BUILD_PACKAGES[@]}" libcurl4
 
     # install pam_oauth2.so
     git clone -b "$PAM_OAUTH2" --recurse-submodules https://github.com/zalando-pg/pam-oauth2.git
@@ -59,8 +61,7 @@ curl -sL "https://github.com/hughcapet/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.g
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
 git clone https://github.com/timescale/timescaledb.git
 
-apt-get install -y \
-    postgresql-common \
+zypper install -y \
     libevent-2.1 \
     libevent-pthreads-2.1 \
     brotli \
@@ -69,33 +70,34 @@ apt-get install -y \
     python3-psycopg2
 
 # forbid creation of a main cluster when package is installed
-sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
+#sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
-for version in $DEB_PG_SUPPORTED_VERSIONS; do
-    sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
-    apt-get update
+
+for version in $PG_SUPPORTED_VERSIONS; do
+    #sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
+    zypper update
 
     if [ "$DEMO" != "true" ]; then
         EXTRAS=("postgresql-pltcl-${version}"
-                "postgresql-${version}-dirtyread"
-                "postgresql-${version}-extra-window-functions"
-                "postgresql-${version}-first-last-agg"
-                "postgresql-${version}-hll"
-                "postgresql-${version}-hypopg"
-                "postgresql-${version}-plproxy"
-                "postgresql-${version}-partman"
-                "postgresql-${version}-pgaudit"
-                "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
-                "postgresql-${version}-plpgsql-check"
-                "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
-                "postgresql-${version}-pgq-node"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
-                "postgresql-${version}-repack"
-                "postgresql-${version}-wal2json")
+                "postgresql${version}-dirtyread"
+                "postgresql${version}-extra-window-functions"
+                "postgresql${version}-first-last-agg"
+                "postgresql${version}-hll"
+                "postgresql${version}-hypopg"
+                "postgresql${version}-plproxy"
+                "postgresql${version}-partman"
+                "postgresql${version}-pgaudit"
+                "postgresql${version}-pldebugger"
+                "postgresql${version}-pglogical"
+                "postgresql${version}-pglogical-ticker"
+                "postgresql${version}-plpgsql-check"
+                "postgresql${version}-pg-checksums"
+                "postgresql${version}-pgl-ddl-deploy"
+                "postgresql${version}-pgq-node"
+                "postgresql${version}-postgis-${POSTGIS_VERSION%.*}"
+                "postgresql${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
+                "postgresql${version}-repack"
+                "postgresql${version}-wal2json")
 
         if [ "$version" != "15" ]; then
             # not yet present for pg15
@@ -116,7 +118,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
-    apt-get install --allow-downgrades -y \
+    zypper install --allow-downgrades -y \
         "postgresql-${version}-cron" \
         "postgresql-contrib-${version}" \
         "postgresql-${version}-pgextwlist" \
@@ -164,17 +166,17 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     done
 done
 
-apt-get install -y skytools3-ticker pgbouncer
+zypper install -y skytools3-ticker pgbouncer
 
 sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
-apt-get update
-apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
-for version in $DEB_PG_SUPPORTED_VERSIONS; do
-    apt-get install -y "postgresql-server-dev-${version}"
+zypper update
+zypper install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
+for version in $PG_SUPPORTED_VERSIONS; do
+    zypper install -y "postgresql-server-dev-${version}"
 done
 
 if [ "$DEMO" != "true" ]; then
-    for version in $DEB_PG_SUPPORTED_VERSIONS; do
+    for version in $PG_SUPPORTED_VERSIONS; do
         # create postgis symlinks to make it possible to perform update
         ln -s "postgis-${POSTGIS_VERSION%.*}.so" "/usr/lib/postgresql/${version}/lib/postgis-2.5.so"
     done
@@ -183,15 +185,15 @@ fi
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
 
-apt-get purge -y "${BUILD_PACKAGES[@]}"
-apt-get autoremove -y
+zypper purge -y "${BUILD_PACKAGES[@]}"
+zypper autoremove -y
 
 if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
-    dpkg -i ./*.deb || apt-get -y -f install
+    dpkg -i ./*.deb || zypper -y -f install
 fi
 
 # Remove unnecessary packages
-apt-get purge -y \
+zypper purge -y \
                 libdpkg-perl \
                 libperl5.* \
                 perl-modules-5.* \
@@ -201,9 +203,9 @@ apt-get purge -y \
                 libpq-dev=* \
                 libmagic1 \
                 bsdmainutils
-apt-get autoremove -y
-apt-get clean
-dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y
+zypper autoremove -y
+zypper clean
+dpkg -l | grep '^rc' | awk '{print $2}' | xargs zypper purge -y
 
 # Try to minimize size by creating symlinks instead of duplicate files
 if [ "$DEMO" != "true" ]; then
