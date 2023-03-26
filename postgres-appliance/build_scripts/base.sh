@@ -35,7 +35,7 @@ else
     make -C pam-oauth2 install
 
     # prepare 3rd sources
-    git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
+    git clone -b "$PLPROFILER" https://github.com/hughcapet/plprofiler.git
     tar -xzf "plantuner-${PLANTUNER_COMMIT}.tar.gz"
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
 
@@ -145,6 +145,22 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             git clean -f -d
         done
     )
+
+    if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
+        __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
+        echo "deb [signed-by=/usr/share/keyrings/timescale_E7391C94080429FF.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${__versionCodename} main" | tee /etc/apt/sources.list.d/timescaledb.list
+        curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor > /usr/share/keyrings/timescale_E7391C94080429FF.gpg
+
+        apt-get update
+        if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
+            apt-get install "timescaledb-toolkit-postgresql-$version"
+        else
+            echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
+        fi
+
+        rm /etc/apt/sources.list.d/timescaledb.list
+        rm /usr/share/keyrings/timescale_E7391C94080429FF.gpg
+    fi
 
     if [ "$DEMO" != "true" ]; then
         EXTRA_EXTENSIONS=("plantuner-${PLANTUNER_COMMIT}" plprofiler)
