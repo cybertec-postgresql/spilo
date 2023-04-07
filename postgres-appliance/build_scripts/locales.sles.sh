@@ -6,8 +6,8 @@
 
 set -ex
 
-zypper refresh -s
-zypper update -y
+zypper -q refresh -s
+zypper -q update -y
 zypper -n install glibc-locale glibc-i18ndata gzip
 
 # Cleanup all locales but en_US.UTF-8 and optionally specified in ADDITIONAL_LOCALES arg

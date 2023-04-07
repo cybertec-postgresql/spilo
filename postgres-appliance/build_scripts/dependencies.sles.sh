@@ -22,15 +22,15 @@ export MAKEFLAGS
 
 ARCH="$(arch)"
 
-zypper ref -s
-zypper update -y
+zypper -q ref -s
+zypper -q update -y
 
 # 'curl' is already installed.
 # No update candidate for 'curl-7.79.1-150400.5.15.1.x86_64'. The highest available version is already installed.
 # 'ca-certificates' is already installed.
 # No update candidate for 'ca-certificates-2+git20210309.21162a6-2.1.noarch'. The highest available version is already installed.
-zypper -n in curl ca-certificates gzip tar git cmake gawk lzo-devel libsodium-devel
-zypper -n in -t pattern devel_basis
+zypper -q -n in curl ca-certificates gzip tar git cmake gawk lzo-devel libsodium-devel 
+zypper -q -n in -t pattern devel_basis 
 
 # removed when use 
 # FROM registry.suse.com/bci/golang:1.19
