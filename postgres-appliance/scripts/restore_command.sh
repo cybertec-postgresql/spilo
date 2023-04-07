@@ -7,7 +7,7 @@ if [[ "$ENABLE_WAL_PATH_COMPAT" = "true" ]]; then
     [[ $exitcode = 0 ]] && exit 0
     for wale_env in $(printenv -0 | tr '\n' ' ' | sed 's/\x00/\n/g' | sed -n 's/^\(WAL[EG]_[^=][^=]*_PREFIX\)=.*$/\1/p'); do
         suffix=$(basename "${!wale_env}")
-        if [[ -x "/usr/lib/postgresql/$suffix/bin/postgres" ]]; then
+        if [[ -x "/usr/pgsql-$suffix/bin/postgres" ]]; then
             prefix=$(dirname "${!wale_env}")
             if [[ $prefix =~ /spilo/ ]] && [[ $prefix =~ /wal$ ]]; then
                 printf -v "$wale_env" "%s" "$prefix"
