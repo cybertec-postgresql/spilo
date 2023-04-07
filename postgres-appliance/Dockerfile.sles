@@ -4,7 +4,7 @@
 #
 
 ARG BASE_IMAGE=registry.suse.com/suse/sle15
-ARG PGVERSION=15
+ARG PGVERSION=14
 ARG TIMESCALEDB="1.7.5 2.3.1 2.9.2"
 ARG DEMO=false
 ARG COMPRESS=false
@@ -56,7 +56,7 @@ ARG TIMESCALEDB_APACHE_ONLY=true
 ARG TIMESCALEDB_TOOLKIT=true
 ARG COMPRESS
 #ARG PGOLDVERSIONS="12 13 14"
-ARG PGOLDVERSIONS
+ARG PGOLDVERSIONS=""
 ARG WITH_PERL=false
 
 #ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
@@ -64,6 +64,7 @@ ARG PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 ARG ADDITIONAL_MODULES=PackageHub,sle-module-development-tools
 #ARG ADDITIONAL_MODULES 
+ENV ADDITIONAL_MODULES=PackageHub,sle-module-development-tools
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.3 \
@@ -85,7 +86,8 @@ RUN bash base.sh
 # Install wal-g
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
-COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
+COPY build_scripts/patroni_wale.sles.sh /builddeps/patroni_wale.sh
+COPY build_scripts/compress_build.sles.sh /builddeps/compress_build.sh
 
 # Install patroni and wal-e
 ENV PATRONIVERSION=3.0.0
@@ -93,8 +95,9 @@ ENV WALE_VERSION=1.1.1
 
 WORKDIR /
 
-#RUN bash /builddeps/patroni_wale.sh <<<<<<<<<<<
+RUN bash /builddeps/patroni_wale.sh
 
+#TODO: fix and test with compress
 RUN if [ "$COMPRESS" = "true" ]; then bash /builddeps/compress_build.sh; fi
 
 
@@ -104,7 +107,7 @@ COPY --from=builder-false / /
 
 FROM builder-${COMPRESS}
 
-LABEL maintainer="Polina Bungina <polina.bungina@zalando.de>"
+LABEL maintainer="Haris Lihovac <haris.lihovac@cybertec.at>"
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -114,7 +117,7 @@ ARG COMPRESS
 EXPOSE 5432 8008 8080
 
 ENV LC_ALL=en_US.utf-8 \
-    PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
+    PATH=$PATH:/usr/pgsql-$PGVERSION/bin/ \
     PGHOME=/home/postgres \
     RW_DIR=/run \
     TIMESCALEDB=$TIMESCALEDB \
@@ -132,13 +135,13 @@ ENV USE_OLD_LOCALES=false
 WORKDIR $PGHOME
 
 COPY motd /etc/
-COPY runit /etc/service/
+COPY runit /etc/runit/runsvdir/default/
 COPY pgq_ticker.ini $PGHOME/
-COPY build_scripts/post_build.sh /builddeps/
+COPY build_scripts/post_build.sles.sh /builddeps/post_build.sh
 
 RUN sh /builddeps/post_build.sh && rm -rf /builddeps/
 
 COPY scripts bootstrap major_upgrade /scripts/
-COPY launch.sh /
+COPY launch.sles.sh /launch.sh
 
 CMD ["/bin/sh", "/launch.sh", "init"]

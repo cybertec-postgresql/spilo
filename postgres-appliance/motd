@@ -3,7 +3,7 @@ echo "
 / ___| _ __ (_) | ___
 \___ \| '_ \| | |/ _ \\
  ___) | |_) | | | (_) |
-|____/| .__/|_|_|\___/
+|____/| .__/|_|_|\___/  @ SLES15
       |_|
 
 This container is managed by runit, when stopping/starting services use sv
