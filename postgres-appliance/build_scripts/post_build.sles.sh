@@ -2,9 +2,9 @@
 
 set -ex
 
-zypper -n install -r SLE_BCI \
-    libbrotlienc1 \
-    libevent-2_1-8
+#zypper -n install -r SLE_BCI \
+#    libbrotlienc1 \
+#    libevent-2_1-8
 
 #sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd
 sed -i "s|/var/lib/pgsql.*|$PGHOME:/bin/bash|" /etc/passwd
