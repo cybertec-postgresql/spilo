@@ -9,7 +9,6 @@ MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)"
 export MAKEFLAGS
 
 set -ex
-#sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list
 
 #apt-get update
 #zypper -n addrepo https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg15.repo
@@ -21,11 +20,15 @@ zypper --gpg-auto-import-keys refresh -s
 zypper update -y
 
 #BUILD_PACKAGES=(devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev)
-BUILD_PACKAGES=(gcc git krb5-devel libbrotli-devel libevent-devel libopenssl-devel cmake fakeroot debhelper awk) 
+#BUILD_PACKAGES=(gcc git krb5-devel libbrotli-devel libevent-devel libopenssl-devel cmake fakeroot debhelper awk) 
+# following 2 need to be installed separately to avoid to be removed L:101
+# libbrotli-devel libevent-devel 
+BUILD_PACKAGES=(gcc git krb5-devel libopenssl-devel cmake fakeroot debhelper awk) 
 if [ "$DEMO" = "true" ]; then
     export PG_SUPPORTED_VERSIONS="$PGVERSION"
     WITH_PERL=false
     rm -f ./*.deb
+
     #apt-get install -y "${BUILD_PACKAGES[@]}"
     zypper -n -q install "${BUILD_PACKAGES[@]}"
 else
@@ -301,12 +304,8 @@ make -C ./pgqd PG_CONFIG=/usr/pgsql-$PGVERSION/bin/pg_config install
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
 
-#echo "${BUILD_PACKAGES[@]}"
-#exit 0
 #apt-get purge -y "${BUILD_PACKAGES[@]}"
 zypper -q -n remove --clean-deps "${BUILD_PACKAGES[@]}"
-#zypper -q -n remove "${BUILD_PACKAGES[@]}"
-#zypper -q -n remove --clean-deps gcc
 #apt-get autoremove -y
 
 #if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
@@ -439,4 +438,12 @@ zypper -q clean -a
 #        /usr/lib/postgresql/*/bin/dropuser \
 #        /usr/lib/postgresql/*/bin/pg_standby \
 #        /usr/lib/postgresql/*/bin/pltcl_*
+rm -rf /var/cache/zypp/ \
+    /builddeps \
+    /usr/share/doc \
+    /usr/share/man \
+    /usr/share/info \
+    /usr/share/locale/?? \
+    /usr/share/locale/??_?? 
+
 find /var/log -type f -exec truncate --size 0 {} \;
