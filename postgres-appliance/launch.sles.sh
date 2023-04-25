@@ -4,7 +4,7 @@ if [ -f /a.tar.xz ]; then
     echo "decompressing spilo image..."
     if tar xpJf /a.tar.xz -C / > /dev/null 2>&1; then
         rm /a.tar.xz
-        ln -snf dash /bin/sh
+        ln -snf bash /bin/sh
     else
         echo "failed to decompress spilo image"
         exit 1
