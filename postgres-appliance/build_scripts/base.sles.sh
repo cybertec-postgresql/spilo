@@ -16,14 +16,14 @@ set -ex
 #zypper -n addrepo https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg13.repo
 #zypper -n addrepo https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg12.repo
 zypper -n addrepo "https://download.postgresql.org/pub/repos/zypp/repo/pgdg-sles-15-pg$PGVERSION.repo"
-zypper --gpg-auto-import-keys refresh -s
+zypper -q --gpg-auto-import-keys refresh -s
 zypper update -y
 
 #BUILD_PACKAGES=(devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev)
 #BUILD_PACKAGES=(gcc git krb5-devel libbrotli-devel libevent-devel libopenssl-devel cmake fakeroot debhelper awk) 
 # following 2 need to be installed separately to avoid to be removed L:101
 # libbrotli-devel libevent-devel 
-BUILD_PACKAGES=(gcc git krb5-devel libopenssl-devel cmake fakeroot debhelper awk) 
+BUILD_PACKAGES=(gcc git krb5-devel libopenssl-devel cmake fakeroot debhelper awk)
 if [ "$DEMO" = "true" ]; then
     export PG_SUPPORTED_VERSIONS="$PGVERSION"
     WITH_PERL=false
@@ -303,6 +303,11 @@ make -C ./pgqd PG_CONFIG=/usr/pgsql-$PGVERSION/bin/pg_config install
 
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
+
+#│   File "/scripts/configure_spilo.py", line 956, in setup_runit_cron                                                                  │
+#│     os.chown(crontabs, -1, grp.getgrnam('crontab').gr_gid)                                                                           │
+#│ KeyError: "getgrnam(): name not found: 'crontab'"
+groupadd --system crontab
 
 #apt-get purge -y "${BUILD_PACKAGES[@]}"
 zypper -q -n remove --clean-deps "${BUILD_PACKAGES[@]}"
