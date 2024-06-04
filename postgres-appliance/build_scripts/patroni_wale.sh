@@ -49,7 +49,7 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS] @ git+https://github.com/cybertec-postgresql/patroni.git@feature/sync-standby-cluster
+pip3 install "patroni[kubernetes$EXTRAS] @ git+https://github.com/cybertec-postgresql/patroni.git@feature/sync-standby-cluster"
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages
