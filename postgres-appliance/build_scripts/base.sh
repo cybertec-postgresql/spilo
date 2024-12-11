@@ -64,86 +64,25 @@ apt-get install -y \
     brotli \
     libbrotli1 \
     python3.10 \
-    python3-psycopg2
+    python3-psycopg2 \
+    libpython3.10 \
+    tzdata \
+    libllvm14 \
+    llvm-14-dev \
+    clang-14 \
+    libxslt1.1 
 
 # forbid creation of a main cluster when package is installed
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
+apt-get install -y skytools3-ticker pgbouncer
+
+sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
+apt-get update
+dpkg -i libpq5_16.4+babelfish-1_amd64.deb libpq-dev_16.4+babelfish-1_amd64.deb postgresql-16_16.4+babelfish-1_amd64.deb postgresql-client-16_16.4+babelfish-1_amd64.deb postgresql-plpython3-16_16.4+babelfish-1_amd64.deb postgresql-server-dev-16_16.4+babelfish-1_amd64.deb postgresql-16-babelfish-extensions_4.3.0-1_amd64.deb
+
+
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
-    sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
-    apt-get update
-
-    if [ "$DEMO" != "true" ]; then
-        EXTRAS=("postgresql-pltcl-${version}"
-                "postgresql-${version}-dirtyread"
-                "postgresql-${version}-extra-window-functions"
-                "postgresql-${version}-first-last-agg"
-                "postgresql-${version}-hll"
-                "postgresql-${version}-hypopg"
-                "postgresql-${version}-partman"
-                "postgresql-${version}-plproxy"
-                "postgresql-${version}-pgaudit"
-                "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
-                "postgresql-${version}-plpgsql-check"
-                "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
-                "postgresql-${version}-pgq-node"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
-                "postgresql-${version}-repack"
-                "postgresql-${version}-wal2json"
-                "postgresql-${version}-decoderbufs"
-                "postgresql-${version}-pllua"
-                "postgresql-${version}-pgvector")
-
-        if [ "$WITH_PERL" = "true" ]; then
-            EXTRAS+=("postgresql-plperl-${version}")
-        fi
-
-    fi
-
-    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
-        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
-    else
-        EXTRAS+=("timescaledb-2-postgresql-${version}")
-    fi
-
-    # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
-    apt-get install --allow-downgrades -y \
-        "postgresql-${version}-cron" \
-        "postgresql-contrib-${version}" \
-        "postgresql-${version}-pgextwlist" \
-        "postgresql-plpython3-${version}" \
-        "postgresql-server-dev-${version}" \
-        "postgresql-${version}-pgq3" \
-        "postgresql-${version}-pg-stat-kcache" \
-        "${EXTRAS[@]}"
-
-    # Clean up timescaledb versions except the highest compatible version
-    exclude_patterns=()
-    exclude_patterns_tsl=()
-    for ts_version in ${TIMESCALEDB}; do
-        exclude_patterns+=(! -name timescaledb-"${ts_version}".so)
-        exclude_patterns_tsl+=(! -name timescaledb-tsl-"${ts_version}".so)
-    done
-    find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-2.*.so' "${exclude_patterns[@]}" -delete;
-
-    if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ]; then
-        find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-tsl-2.*.so' "${exclude_patterns_tsl[@]}" -delete;
-    fi
-
-    # Install 3rd party stuff
-
-    if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
-        apt-get update
-        if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
-            apt-get install "timescaledb-toolkit-postgresql-$version"
-        else
-            echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
-        fi
-    fi
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
@@ -158,15 +97,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
     done
-done
-
-apt-get install -y skytools3-ticker pgbouncer
-
-sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
-apt-get update
-apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
-for version in $DEB_PG_SUPPORTED_VERSIONS; do
-    apt-get install -y "postgresql-server-dev-${version}"
 done
 
 if [ "$DEMO" != "true" ]; then
@@ -186,17 +116,6 @@ if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
     dpkg -i ./*.deb || apt-get -y -f install
 fi
 
-# Remove unnecessary packages
-apt-get purge -y \
-                libdpkg-perl \
-                libperl5.* \
-                perl-modules-5.* \
-                postgresql \
-                postgresql-all \
-                postgresql-server-dev-* \
-                libpq-dev=* \
-                libmagic1 \
-                bsdmainutils
 apt-get autoremove -y
 apt-get clean
 dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y
