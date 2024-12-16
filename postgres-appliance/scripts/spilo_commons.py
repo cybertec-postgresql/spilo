@@ -19,7 +19,7 @@ extensions = {
     # 'pg_partman':     (9.4, 16, False, True)
 }
 if os.environ.get('ENABLE_PG_MON') == 'true':
-    extensions['pg_mon'] = (11,  16, True,  False)
+    extensions['pg_mon'] = (11,  17, True,  False)
 
 
 def adjust_extensions(old, version, extwlist=False):

@@ -62,6 +62,9 @@ elif python3 /scripts/configure_spilo.py all; then
     fi
 fi
 
+# Babelfish package have linking error, and this is workaround for it.
+ln -s /usr/lib/postgresql/16/lib/libantlr4-runtime.so.4.9.3 /usr/lib
+
 sv_stop() {
     sv -w 86400 stop patroni
     sv -w 86400 stop /etc/service/*

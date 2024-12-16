@@ -90,7 +90,17 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     application_name text,
     CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
-GRANT SELECT ON public.postgres_log TO admin;"
+GRANT SELECT ON public.postgres_log TO admin;
+
+CREATE USER cybertec WITH CREATEDB;
+CREATE DATABASE babelfish_db OWNER cybertec;
+ALTER DATABASE babelfish_db SET babelfishpg_tsql.migration_mode = 'single-db';
+\c babelfish_db
+CREATE EXTENSION IF NOT EXISTS "babelfishpg_tds" CASCADE;
+ALTER SYSTEM SET babelfishpg_tsql.database_name = 'babelfish_db';
+CALL SYS.INITIALIZE_BABELFISH('cybertec');
+\c postgres"
+
 if [ "$PGVER" -ge 13 ]; then
     echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS backend_type text;"
 fi
