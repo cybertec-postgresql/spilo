@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# save backup log in same directory as PostgreSQL server log
+LOGFILE=${PGDATA}/../pg_log/postgres_backup.log
+
+# keep log for the last 10 invocaions
+savelog -nlc 10 $LOGFILE
+
+# in addition to regular output, append all stdout and stderr to log file
+exec &> >(tee -a $LOGFILE)
+
 function log
 {
     echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $*"
