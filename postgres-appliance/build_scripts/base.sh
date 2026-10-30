@@ -54,6 +54,7 @@ fi
 curl -sL "https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
+git clone --depth 1 -b "$PG_STAT_MONITOR" https://github.com/percona/pg_stat_monitor.git
 
 apt-get install -y \
     postgresql-common \
@@ -184,6 +185,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     for n in bg_mon-${BG_MON_COMMIT} \
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
             pg_profile-${PG_PROFILE} \
+            pg_stat_monitor \
             "${EXTRA_EXTENSIONS[@]}"; do
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip

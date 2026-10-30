@@ -41,7 +41,14 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
+# Build Patroni from the upstream release tag and apply our patches (sync standby cluster feature, PR 3710)
+PATRONI_SRC=/tmp/patroni-src
+git clone --depth 1 -b "v$PATRONIVERSION" https://github.com/patroni/patroni.git "$PATRONI_SRC"
+for p in /builddeps/patches/patroni-*.patch; do
+    git -C "$PATRONI_SRC" apply -v "$p"
+done
+pip3 install "$PATRONI_SRC[kubernetes$EXTRAS]"
+rm -rf "$PATRONI_SRC"
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages

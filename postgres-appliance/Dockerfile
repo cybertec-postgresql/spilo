@@ -58,7 +58,8 @@ ENV POSTGIS_VERSION=3.6 \
     PG_MON_COMMIT=88ac7b58348aa061c814982defc170644f368f39 \
     PLPROFILER=REL4_2_5 \
     PG_PROFILE=4.11 \
-    PAM_OAUTH2=v1.0.1
+    PAM_OAUTH2=v1.0.1 \
+    PG_STAT_MONITOR=2.4.0
 
 WORKDIR /builddeps
 RUN bash base.sh
@@ -67,9 +68,10 @@ RUN bash base.sh
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
 COPY build_scripts/patroni.sh build_scripts/compress_build.sh /builddeps/
+COPY build_scripts/patches/patroni-*.patch /builddeps/patches/
 
 # Install patroni
-ENV PATRONIVERSION=4.1.0
+ENV PATRONIVERSION=4.1.5
 
 WORKDIR /
 

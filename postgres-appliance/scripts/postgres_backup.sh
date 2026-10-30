@@ -1,5 +1,16 @@
 #!/bin/bash
 
+readonly PGDATA=$1
+
+# save backup log in same directory as PostgreSQL server log
+LOGFILE=${PGDATA}/../pg_log/postgres_backup.log
+
+# keep log for the last 10 invocaions
+savelog -nlc 10 $LOGFILE
+
+# in addition to regular output, append all stdout and stderr to log file
+exec > >(tee -a $LOGFILE) 2>&1
+
 function log
 {
     echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $*"
@@ -10,7 +21,6 @@ function log
 log "I was called as: $0 $*"
 
 
-readonly PGDATA=$1
 DAYS_TO_RETAIN=$BACKUP_NUM_TO_RETAIN
 
 IN_RECOVERY=$(psql -tXqAc "select pg_catalog.pg_is_in_recovery()")

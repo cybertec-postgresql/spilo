@@ -1,0 +1,339 @@
+diff --git a/docs/dynamic_configuration.rst b/docs/dynamic_configuration.rst
+index 908bc3f..1817a01 100644
+--- a/docs/dynamic_configuration.rst
++++ b/docs/dynamic_configuration.rst
+@@ -28,6 +28,7 @@ In order to change the dynamic configuration you can use either :ref:`patronictl
+ -  **synchronous\_mode**: turns on synchronous replication mode. Possible values: ``off``, ``on``, ``quorum``. In this mode the leader takes care of management of ``synchronous_standby_names``, and only the last known leader, or one of synchronous replicas, are allowed to participate in leader race. Synchronous mode makes sure that successfully committed transactions will not be lost at failover, at the cost of losing availability for writes when Patroni cannot ensure transaction durability. See :ref:`replication modes documentation <replication_modes>` for details.
+ -  **synchronous\_mode\_strict**: prevents disabling synchronous replication if no synchronous replicas are available, blocking all client writes to the primary. See :ref:`replication modes documentation <replication_modes>` for details.
+ -  **synchronous\_node\_count**: if ``synchronous_mode`` is enabled, this parameter is used by Patroni to manage the precise number of synchronous standby instances and adjusts the state in DCS and the ``synchronous_standby_names`` parameter in PostgreSQL as members join and leave. If the parameter is set to a value higher than the number of eligible nodes, it will be automatically adjusted. Defaults to ``1``.
++-  **synchronous\_nodes\_additional**: list of additional node names to add to `synchronous_standby_names`, which are not part of the primary cluster.
+ -  **failsafe\_mode**: Enables :ref:`DCS Failsafe Mode <dcs_failsafe_mode>`. Defaults to `false`.
+ -  **postgresql**:
+ 
+@@ -55,6 +56,7 @@ In order to change the dynamic configuration you can use either :ref:`patronictl
+    -  **restore\_command**: command to restore WAL records from the remote primary to nodes in a standby cluster, can be different from the list defined in :ref:`postgresql_settings`
+    -  **archive\_cleanup\_command**: cleanup command for standby leader
+    -  **recovery\_min\_apply\_delay**: how long to wait before actually apply WAL records on a standby leader
++    -  **application_name**: application name for standby leader to connect to the primary cluster's leader
+ 
+ -  **member_slots_ttl**: retention time of physical replication slots for replicas when they are shut down. Default value: `30min`. Set it to `0` if you want to keep the old behavior (when the member key expires from DCS, the slot is immediately removed). The feature works only starting from PostgreSQL 11.
+ -  **slots**: define permanent replication slots. These slots will be preserved during switchover/failover. Permanent slots that don't exist will be created by Patroni. With PostgreSQL 11 onwards permanent physical slots are created on all nodes and their position is advanced every **loop_wait** seconds. For PostgreSQL versions older than 11 permanent physical replication slots are maintained only on the current primary. The logical slots are copied from the primary to a standby with restart, and after that their position advanced every **loop_wait** seconds (if necessary). Copying logical slot files performed via ``libpq`` connection and using either rewind or superuser credentials (see **postgresql.authentication** section). There is always a chance that the logical slot position on the replica is a bit behind the former primary, therefore application should be prepared that some messages could be received the second time after the failover. The easiest way of doing so - tracking ``confirmed_flush_lsn``. Enabling permanent replication slots requires **postgresql.use_slots** to be set to ``true``. If there are permanent logical replication slots defined Patroni will automatically enable the ``hot_standby_feedback``. Since the failover of logical replication slots is unsafe on PostgreSQL 9.6 and older and PostgreSQL version 10 is missing some important functions, the feature only works with PostgreSQL 11+.
+diff --git a/docs/replication_modes.rst b/docs/replication_modes.rst
+index 34d10db..f44900a 100644
+--- a/docs/replication_modes.rst
++++ b/docs/replication_modes.rst
+@@ -179,3 +179,13 @@ If the primary (``node0``) failed, in the above example two of the ``node1``, ``
+ .. [1] The data is still there, but recovering it requires a manual recovery effort by data recovery specialists. When Patroni is allowed to rewind with ``use_pg_rewind`` the forked timeline will be automatically erased to rejoin the failed primary with the cluster. However, for ``use_pg_rewind`` to function properly, either the cluster must be initialized with ``data page checksums`` (``--data-checksums`` option for ``initdb``) and/or ``wal_log_hints`` must be set to ``on``.
+ 
+ .. [2] Clients can change the behavior per transaction using PostgreSQL's ``synchronous_commit`` setting. Transactions with ``synchronous_commit`` values of ``off`` and ``local`` may be lost on fail over, but will not be blocked by replication delays.
++
++Additional synchronous replicas
++-------------------------------
++In synchronous mode, Patroni fully manages the ``synchronous_standby_names`` PostgreSQL parameter and updates it on each HA loop iteration if it does not match the expected value.
++
++You may have some secondary PostgreSQL cluster, potentially managed by Patroni as well, and want to have the leader be synchronous to the primary cluster as well. In this case, the Patroni parameter ``synchronous_nodes_additional`` to specify additional node names which will be added to `synchronous_standby_names` on the cluster leader.
++
++To adjust the application name on the secondary cluster which PostgreSQL uses to connect, you can set the ``application_name`` parameter under the ``standby_cluster`` section in your Patroni standby cluster configuration.
++
++**Note:** ``synchronous_node_count`` is **not** taken into account when setting additional synchronous standby names. This parameter still operates the same as before and only affects the current cluster. The additional names are simply appended without Patroni knowing anything about them.
+diff --git a/patroni/config.py b/patroni/config.py
+index 7b778c3..442b230 100644
+--- a/patroni/config.py
++++ b/patroni/config.py
+@@ -93,6 +93,7 @@ class Config(object):
+             'host': '',
+             'port': '',
+             'primary_slot_name': '',
++            'application_name': '',
+             'restore_command': '',
+             'archive_cleanup_command': '',
+             'recovery_min_apply_delay': ''
+diff --git a/patroni/ctl.py b/patroni/ctl.py
+index c84855c..d9f28e6 100644
+--- a/patroni/ctl.py
++++ b/patroni/ctl.py
+@@ -1547,6 +1547,10 @@ def get_cluster_service_info(cluster: Dict[str, Any]) -> List[str]:
+         * Scheduled switchovers.
+     """
+     service_info: List[str] = []
++
++    if 'synchronous_nodes_additional' in cluster:
++        service_info.append('Additional synchronous standby nodes: ' + cluster['synchronous_nodes_additional'])
++
+     if cluster.get('pause'):
+         service_info.append('Maintenance mode: on')
+ 
+diff --git a/patroni/dcs/__init__.py b/patroni/dcs/__init__.py
+index 108c7b2..35f3776 100644
+--- a/patroni/dcs/__init__.py
++++ b/patroni/dcs/__init__.py
+@@ -350,7 +350,8 @@ class RemoteMember(Member):
+         'restore_command',
+         'archive_cleanup_command',
+         'recovery_min_apply_delay',
+-        'no_replication_slot'
++        'no_replication_slot',
++        'application_name'
+     )
+ 
+     def __new__(cls, name: str, data: Dict[str, Any]) -> 'RemoteMember':
+@@ -589,12 +590,14 @@ class SyncState(NamedTuple):
+     :ivar quorum: if the node from :attr:`~SyncState.sync_standby` list is doing a leader race it should
+                   see at least :attr:`~SyncState.quorum` other nodes from the
+                   :attr:`~SyncState.sync_standby` + :attr:`~SyncState.leader` list.
++    :ivar synchronous_nodes_additional: the additional items that were added to synchronous_standby_names last time.
+     """
+ 
+     version: Optional[_Version]
+     leader: Optional[str]
+     sync_standby: Optional[str]
+     quorum: int
++    synchronous_nodes_additional: Optional[str]
+ 
+     @staticmethod
+     def from_node(version: Optional[_Version], value: Union[str, Dict[str, Any], None]) -> 'SyncState':
+@@ -632,7 +635,8 @@ class SyncState(NamedTuple):
+                 raise PatroniAssertionError('not a dict')
+             leader = value.get('leader')
+             quorum = value.get('quorum')
+-            return SyncState(version, leader, value.get('sync_standby'), int(quorum) if leader and quorum else 0)
++            return SyncState(version, leader, value.get('sync_standby'), int(quorum) if leader and quorum else 0,
++                             value.get('synchronous_nodes_additional'))
+         except (PatroniAssertionError, TypeError, ValueError):
+             return SyncState.empty(version)
+ 
+@@ -644,7 +648,7 @@ class SyncState(NamedTuple):
+ 
+         :returns: empty synchronisation state object.
+         """
+-        return SyncState(version, None, None, 0)
++        return SyncState(version, None, None, 0, None)
+ 
+     @property
+     def is_empty(self) -> bool:
+@@ -673,6 +677,11 @@ class SyncState(NamedTuple):
+         """
+         return [] if not self.leader else [self.leader] + self.voters
+ 
++    @property
++    def additional_members(self) -> List[str]:
++        """:attr:`~SyncState.additional_members` as list or an empty list if undefined."""
++        return self.synchronous_nodes_additional and self.synchronous_nodes_additional.split(',') or []
++
+     def matches(self, name: Optional[str], check_leader: bool = False) -> bool:
+         """Checks if node is presented in the /sync state.
+ 
+@@ -686,7 +695,7 @@ class SyncState(NamedTuple):
+                   the sync state.
+ 
+         :Example:
+-            >>> s = SyncState(1, 'foo', 'bar,zoo', 0)
++            >>> s = SyncState(1, 'foo', 'bar,zoo', 0, 'fefe')
+ 
+             >>> s.matches('foo')
+             False
+@@ -2112,7 +2121,7 @@ class AbstractDCS(abc.ABC):
+ 
+     @staticmethod
+     def sync_state(leader: Optional[str], sync_standby: Optional[Collection[str]],
+-                   quorum: Optional[int]) -> Dict[str, Any]:
++                   quorum: Optional[int], synchronous_nodes_additional: Optional[str]) -> Dict[str, Any]:
+         """Build ``sync_state`` dictionary.
+ 
+         :param leader: name of the leader node that manages ``/sync`` key.
+@@ -2124,10 +2133,13 @@ class AbstractDCS(abc.ABC):
+         :returns: dictionary that later could be serialized to JSON or saved directly to DCS.
+         """
+         return {'leader': leader, 'quorum': quorum,
+-                'sync_standby': ','.join(sorted(sync_standby)) if sync_standby else None}
++                'sync_standby': ','.join(sorted(sync_standby)) if sync_standby else None,
++                'synchronous_nodes_additional':
++                ','.join(sorted(synchronous_nodes_additional)) if synchronous_nodes_additional else None}
+ 
+     def write_sync_state(self, leader: Optional[str], sync_standby: Optional[Collection[str]],
+-                         quorum: Optional[int], version: Optional[Any] = None) -> Optional[SyncState]:
++                         quorum: Optional[int], synchronous_nodes_additional: Optional[Collection[str]] = None,
++                         version: Optional[Any] = None) -> Optional[SyncState]:
+         """Write the new synchronous state to DCS.
+ 
+         Calls :meth:`~AbstractDCS.sync_state` to build a dictionary and then calls DCS specific
+@@ -2142,7 +2154,7 @@ class AbstractDCS(abc.ABC):
+ 
+         :returns: the new :class:`SyncState` object or ``None``.
+         """
+-        sync_value = self.sync_state(leader, sync_standby, quorum)
++        sync_value = self.sync_state(leader, sync_standby, quorum, synchronous_nodes_additional)
+         ret = self.set_sync_state_value(json.dumps(sync_value, separators=(',', ':')), version)
+         if not isinstance(ret, bool):
+             return SyncState.from_node(ret, sync_value)
+diff --git a/patroni/dcs/kubernetes.py b/patroni/dcs/kubernetes.py
+index 55bc8e0..3950315 100644
+--- a/patroni/dcs/kubernetes.py
++++ b/patroni/dcs/kubernetes.py
+@@ -1440,7 +1440,8 @@ class Kubernetes(AbstractDCS):
+         raise NotImplementedError  # pragma: no cover
+ 
+     def write_sync_state(self, leader: Optional[str], sync_standby: Optional[Collection[str]],
+-                         quorum: Optional[int], version: Optional[str] = None) -> Optional[SyncState]:
++                         quorum: Optional[int], synchronous_nodes_additional: Optional[str] = None,
++                         version: Optional[str] = None) -> Optional[SyncState]:
+         """Prepare and write annotations to $SCOPE-sync Endpoint or ConfigMap.
+ 
+         :param leader: name of the leader node that manages /sync key
+@@ -1450,7 +1451,7 @@ class Kubernetes(AbstractDCS):
+         :param version: last known `resource_version` for conditional update of the object
+         :returns: the new :class:`SyncState` object or None
+         """
+-        sync_state = self.sync_state(leader, sync_standby, quorum)
++        sync_state = self.sync_state(leader, sync_standby, quorum, synchronous_nodes_additional)
+         sync_state['quorum'] = str(sync_state['quorum']) if sync_state['quorum'] is not None else None
+         ret = self.patch_or_create(self.sync_path, sync_state, version, False)
+         if not isinstance(ret, bool):
+@@ -1463,7 +1464,7 @@ class Kubernetes(AbstractDCS):
+         :param version: last known `resource_version` for conditional update of the object
+         :returns: `True` if "delete" was successful
+         """
+-        return self.write_sync_state(None, None, None, version=version) is not None
++        return self.write_sync_state(None, None, None, None, version=version) is not None
+ 
+     def watch(self, leader_version: Optional[str], timeout: float) -> bool:
+         if self.__do_not_watch:
+diff --git a/patroni/global_config.py b/patroni/global_config.py
+index f5f3d83..a59560b 100644
+--- a/patroni/global_config.py
++++ b/patroni/global_config.py
+@@ -162,6 +162,16 @@ class GlobalConfig(types.ModuleType):
+         """
+         return max(self.get_int('synchronous_node_count', 1), self.min_synchronous_nodes)
+ 
++    @property
++    def synchronous_nodes_additional(self) -> List[str]:
++        synchronous_nodes_additional = self.get('synchronous_nodes_additional')
++        if isinstance(synchronous_nodes_additional, str):
++            # return string as list
++            return [synchronous_nodes_additional]
++        elif isinstance(synchronous_nodes_additional, list):
++            return synchronous_nodes_additional
++        return []
++
+     @property
+     def maximum_lag_on_failover(self) -> int:
+         """Currently configured value of ``maximum_lag_on_failover`` from the global configuration.
+diff --git a/patroni/ha.py b/patroni/ha.py
+index 9b9da61..116d28b 100644
+--- a/patroni/ha.py
++++ b/patroni/ha.py
+@@ -927,6 +927,9 @@ class Ha(object):
+         if not sync:
+             return
+ 
++        additional = CaseInsensitiveSet(global_config.synchronous_nodes_additional)
++        current_additional = CaseInsensitiveSet(sync.additional_members)
++
+         current_state = self.state_handler.sync_handler.current_state(self.cluster)
+         picked = current_state.active
+         allow_promote = current_state.sync_confirmed
+@@ -948,7 +951,11 @@ class Ha(object):
+                 return logger.warning("Updating sync state failed")
+             voters = CaseInsensitiveSet(sync.voters)
+ 
+-        if picked == voters == current_state.sync and current_state.numsync == len(picked):
++        # additional names are put into synchronous_standby_names as well, therefore they must be taken
++        # into account when comparing it with the nodes picked from the cluster.
++        ssn_nodes = picked | additional
++        if picked == voters and additional == current_additional \
++                and ssn_nodes == current_state.sync and current_state.numsync == len(ssn_nodes):
+             return
+ 
+         # update synchronous standby list in dcs temporarily to point to common nodes in current and picked
+@@ -956,7 +963,9 @@ class Ha(object):
+         if sync_common != voters:
+             logger.info("Updating synchronous privilege temporarily from %s to %s",
+                         list(voters), list(sync_common))
+-            sync = self.dcs.write_sync_state(self.state_handler.name, sync_common, 0, version=sync.version)
++            sync = self.dcs.write_sync_state(self.state_handler.name, sync_common, 0,
++                                             synchronous_nodes_additional=additional,
++                                             version=sync.version)
+             if not sync:
+                 return logger.info('Synchronous replication key updated by someone else.')
+ 
+@@ -965,18 +974,24 @@ class Ha(object):
+             picked = CaseInsensitiveSet('*')
+             logger.warning("No standbys available!")
+ 
++        ssn_nodes = picked | additional
++        if additional:
++            logger.info("Assigning additional synchronous standby names: %s", list(additional))
++
+         # Update postgresql.conf and wait 2 secs for changes to become active
+-        logger.info("Assigning synchronous standby status to %s", list(picked))
+-        self.state_handler.sync_handler.set_synchronous_standby_names(picked)
++        logger.info("Assigning synchronous standby status to %s", list(ssn_nodes))
++        self.state_handler.sync_handler.set_synchronous_standby_names(ssn_nodes)
+ 
+         if picked and picked != CaseInsensitiveSet('*') and allow_promote != picked:
+             # Wait for PostgreSQL to enable synchronous mode and see if we can immediately set sync_standby
+             time.sleep(2)
+             allow_promote = self.state_handler.sync_handler.current_state(self.cluster).sync_confirmed
+ 
+-        if allow_promote and allow_promote != sync_common:
+-            if self.dcs.write_sync_state(self.state_handler.name, allow_promote, 0, version=sync.version):
+-                logger.info("Synchronous standby status assigned to %s", list(allow_promote))
++        if (allow_promote and allow_promote != sync_common) or (additional != current_additional):
++            if self.dcs.write_sync_state(self.state_handler.name, allow_promote, 0,
++                                         synchronous_nodes_additional=additional,
++                                         version=sync.version):
++                logger.info("Synchronous standby status assigned to %s", list(allow_promote | additional))
+             else:
+                 logger.info("Synchronous replication key updated by someone else")
+ 
+diff --git a/patroni/postgresql/config.py b/patroni/postgresql/config.py
+index baf013b..e17cce6 100644
+--- a/patroni/postgresql/config.py
++++ b/patroni/postgresql/config.py
+@@ -639,7 +639,7 @@ class ConfigHandler(object):
+         if not member or not member.conn_url or member.name == self._postgresql.name:
+             return None
+         ret = member.conn_kwargs(self.replication)
+-        ret['application_name'] = self._postgresql.name
++        ret['application_name'] = self._get_application_name(member)
+         ret.setdefault('sslmode', 'prefer')
+         if self._postgresql.major_version >= AUTH_ALLOWED_PARAMETERS_VERSIONS['gssencmode']:
+             ret.setdefault('gssencmode', 'prefer')
+@@ -653,6 +653,12 @@ class ConfigHandler(object):
+             ret['dbname'] = self._postgresql.database
+         return ret
+ 
++    def _get_application_name(self, member: Union[Leader, Member, None]) -> str:
++        if isinstance(member, RemoteMember):
++            return member.application_name
++        else:
++            return self._postgresql.name
++
+     def format_dsn(self, params: Dict[str, Any]) -> str:
+         """Format connection string from connection parameters.
+ 
+@@ -721,6 +727,10 @@ class ConfigHandler(object):
+                 # connstr) by adding 'target_session_attrs=read-write' to primary_conninfo.
+                 if is_remote_member and ',' in primary_conninfo['host'] and self._postgresql.major_version >= 100000:
+                     primary_conninfo['target_session_attrs'] = 'read-write'
++            # on standby_cluster leader, if STANDBY_HOST_ATTRS is set to a "truthy" value,
++            # add target_session_attrs=read_write to primary_conninfo to avoid replicating from a replica
++            if is_remote_member and (os.getenv('STANDBY_HOST_ATTRS', 'False').lower() in ('true', '1', 't', 'on')):
++                primary_conninfo['target_session_attrs'] = 'read-write'
+             recovery_params['primary_conninfo'] = primary_conninfo
+ 
+         # standby_cluster config might have different parameters, we want to override them
+diff --git a/patroni/utils.py b/patroni/utils.py
+index cc07913..bf47704 100644
+--- a/patroni/utils.py
++++ b/patroni/utils.py
+@@ -993,6 +993,8 @@ def cluster_as_json(cluster: 'Cluster') -> Dict[str, Any]:
+     # sort members by name for consistency
+     cmp: Callable[[Dict[str, Any]], bool] = lambda m: m['name']
+     ret['members'].sort(key=cmp)
++    if cluster.sync and cluster.sync.synchronous_nodes_additional:
++        ret['synchronous_nodes_additional'] = cluster.sync.synchronous_nodes_additional
+     if config.is_paused:
+         ret['pause'] = True
+     if cluster.failover and cluster.failover.scheduled_at:
