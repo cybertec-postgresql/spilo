@@ -56,7 +56,7 @@ curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
-
+git clone -b "$PG_STAT_MONITOR" https://github.com/percona/pg_stat_monitor.git
 apt-get install -y \
     postgresql-common \
     libevent-2.1 \
@@ -159,6 +159,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
+            pg_stat_monitor \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" clean
         make -C "$n" USE_PGXS=1 PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" install-strip

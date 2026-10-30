@@ -46,7 +46,7 @@ ARG PGVERSION
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG TIMESCALEDB_TOOLKIT=true
 ARG COMPRESS
-ARG PGOLDVERSIONS="13 14 15 16"
+ARG PGOLDVERSIONS="14 15 16"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
@@ -60,7 +60,8 @@ ENV POSTGIS_VERSION=3.6 \
     PLPROFILER=REL4_2_5 \
     PG_PROFILE=4.7 \
     PAM_OAUTH2=v1.0.1 \
-    PG_PERMISSIONS_COMMIT=f4b7c18676fa64236a1c8e28d34a35764e4a70e2
+    PG_PERMISSIONS_COMMIT=f4b7c18676fa64236a1c8e28d34a35764e4a70e2 \
+    PG_STAT_MONITOR=2.4.0
 
 WORKDIR /builddeps
 RUN bash base.sh
@@ -69,9 +70,10 @@ RUN bash base.sh
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
 COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
+COPY build_scripts/patches/patroni-*.patch /builddeps/patches/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=4.0.4
+ENV PATRONIVERSION=4.1.5
 ENV WALE_VERSION=1.1.1
 
 WORKDIR /

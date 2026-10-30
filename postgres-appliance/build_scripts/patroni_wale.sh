@@ -49,7 +49,13 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS] @ git+https://github.com/cybertec-postgresql/patroni.git@feature/sync-standby-cluster_4.0"
+PATRONI_SRC=/tmp/patroni-src
+git clone --depth 1 -b feature/sync-standby-cluster_4.0 https://github.com/cybertec-postgresql/patroni.git "$PATRONI_SRC"
+for p in /builddeps/patches/patroni-*.patch; do
+    git -C "$PATRONI_SRC" apply -v "$p"
+done
+pip3 install "$PATRONI_SRC[kubernetes$EXTRAS]"
+rm -rf "$PATRONI_SRC"
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages
